@@ -1,17 +1,15 @@
 # NAT Gateway Setup
 
-A production-grade, self-configuring NAT gateway script for Linux servers. Download and run on any Linux instance to configure full NAT in one command — no manual iptables knowledge required.
+A production-grade, self-configuring NAT gateway script for Linux servers. Configure full NAT in one command — no manual iptables knowledge required.
 
-## Quick Start
+## Install
 
 ```bash
-# Download and run
-curl -O https://raw.githubusercontent.com/mashhoudrajput/nat-gateway-setup/main/setup-nat.sh
-chmod +x setup-nat.sh
-sudo ./setup-nat.sh
+wget https://raw.githubusercontent.com/mashhoudrajput/nat-gateway-setup/main/setup-nat.sh
+sudo bash setup-nat.sh
 ```
 
-Everything is auto-detected: outbound interface, private subnets, OS/distro, and on AWS — the VPC CIDR via IMDS.
+That's it. Everything is auto-detected: outbound interface, private subnets, OS/distro, and on AWS — the VPC CIDR via IMDS.
 
 ---
 
@@ -35,7 +33,7 @@ Everything is auto-detected: outbound interface, private subnets, OS/distro, and
 ## Usage
 
 ```bash
-sudo ./setup-nat.sh [OPTIONS]
+sudo bash setup-nat.sh [OPTIONS]
 ```
 
 | Option | Description |
@@ -51,8 +49,8 @@ sudo ./setup-nat.sh [OPTIONS]
 **Environment variable overrides:**
 
 ```bash
-NAT_IFACE=eth0 sudo ./setup-nat.sh
-NAT_CIDRS="10.0.0.0/16,192.168.1.0/24" sudo ./setup-nat.sh
+NAT_IFACE=eth0 sudo bash setup-nat.sh
+NAT_CIDRS="10.0.0.0/16,192.168.1.0/24" sudo bash setup-nat.sh
 ```
 
 ---
@@ -91,14 +89,11 @@ aws ec2 create-route \
 **On the NAT instance:**
 
 ```bash
-# Check script status
-sudo ./setup-nat.sh --status
+sudo bash setup-nat.sh --status
 
-# Verify iptables rules
 sudo iptables -t nat -L POSTROUTING -v -n
 sudo iptables -L FORWARD -v -n
 
-# Confirm IP forwarding
 sysctl net.ipv4.ip_forward
 # Expected: net.ipv4.ip_forward = 1
 ```
@@ -106,18 +101,8 @@ sysctl net.ipv4.ip_forward
 **From a private instance** (no public IP, routing through this NAT):
 
 ```bash
-# Should return the NAT instance's public IP
-curl -s https://checkip.amazonaws.com
-
-# Test connectivity
+curl -s https://checkip.amazonaws.com   # should show NAT instance's public IP
 ping -c 3 8.8.8.8
-```
-
-**Watch live traffic flow:**
-
-```bash
-watch -n1 'sudo iptables -t nat -L POSTROUTING -v -n'
-# Run traffic from a private instance and watch packet/byte counters increment
 ```
 
 ---
@@ -130,14 +115,12 @@ Safe to re-run at any time. Each run:
 2. Removes legacy untagged rules from older versions
 3. Re-applies a clean set of rules
 
-Running it 10 times produces the same result as running it once.
-
 ---
 
 ## Uninstall
 
 ```bash
-sudo ./setup-nat.sh --uninstall
+sudo bash setup-nat.sh --uninstall
 ```
 
 Removes all iptables rules tagged with `setup-nat`, removes the sysctl config, and disables IP forwarding.
