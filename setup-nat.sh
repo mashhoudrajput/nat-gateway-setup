@@ -228,9 +228,11 @@ resolve_conntrack_module() {
   if iptables -A OUTPUT -m conntrack --ctstate ESTABLISHED -j ACCEPT 2>/dev/null; then
     iptables -D OUTPUT -m conntrack --ctstate ESTABLISHED -j ACCEPT 2>/dev/null || true
     _CONNTRACK_MODULE="conntrack"
+    # shellcheck disable=SC2054
     _CONNTRACK_ARGS=(-m conntrack --ctstate RELATED,ESTABLISHED)
   else
     _CONNTRACK_MODULE="state"
+    # shellcheck disable=SC2054
     _CONNTRACK_ARGS=(-m state --state RELATED,ESTABLISHED)
   fi
   debug "Conntrack module: $_CONNTRACK_MODULE (args: ${_CONNTRACK_ARGS[*]})"
@@ -718,6 +720,72 @@ do_uninstall() {
   log "Uninstall complete. IP forwarding disabled, NAT rules removed."
 }
 
+# ─── Client setup instructions ────────────────────────────────────────────────
+show_client_setup() {
+  local nat_gw
+  nat_gw=$(ip -o -4 addr show dev "$NAT_IFACE" 2>/dev/null \
+    | awk 'NR==1{print $4}' | cut -d/ -f1)
+  [[ -z "$nat_gw" ]] && nat_gw="<NAT-PRIVATE-IP>"
+
+  echo
+  echo -e "${_B}╔═════════════════════════════════════════════════════════╗"
+  echo -e "║   PRIVATE SERVER SETUP — copy/paste on each client     ║"
+  echo -e "╚═════════════════════════════════════════════════════════╝${_N}"
+  echo
+  printf '%s\n' \
+    "NAT_GW=${nat_gw}" \
+    "" \
+    "# ── 1. Apply immediately ──────────────────────────────────" \
+    "sudo ip route replace default via \$NAT_GW" \
+    "" \
+    "# ── 2. Make permanent (systemd) ───────────────────────────" \
+    "sudo tee /etc/systemd/system/nat-route.service << 'SVCEOF'" \
+    "[Unit]" \
+    "Description=Default route via NAT Gateway" \
+    "After=network.target" \
+    "" \
+    "[Service]" \
+    "Type=oneshot" \
+    "ExecStart=/sbin/ip route replace default via ${nat_gw}" \
+    "RemainAfterExit=yes" \
+    "" \
+    "[Install]" \
+    "WantedBy=multi-user.target" \
+    "SVCEOF" \
+    "" \
+    "sudo systemctl daemon-reload" \
+    "sudo systemctl enable --now nat-route.service" \
+    "" \
+    "# ── 3. Verify ─────────────────────────────────────────────" \
+    "curl -s https://checkip.amazonaws.com   # must show NAT public IP" \
+    "ping -c 3 8.8.8.8"
+
+  if $IS_EC2; then
+    local iid=""
+    iid=$(imds_get "instance-id" 2>/dev/null || true)
+    echo
+    echo -e "${_Y}  ╔══ AWS ONLY — run from your workstation, not here ══╗${_N}"
+    echo -e "${_Y}  ║  Add a route in the private subnet's route table:  ║${_N}"
+    echo -e "${_Y}  ╚════════════════════════════════════════════════════╝${_N}"
+    echo
+    echo "  Step 1 — find your private subnet route table ID in the AWS Console"
+    echo "           (VPC → Route Tables → select the private subnet's table)"
+    echo
+    echo "  Step 2 — run this from your workstation (AWS CLI):"
+    echo
+    printf '%s\n' \
+      "  aws ec2 create-route \\" \
+      "    --route-table-id <PRIVATE-SUBNET-RTB-ID> \\" \
+      "    --destination-cidr-block 0.0.0.0/0 \\" \
+      "    --instance-id ${iid:-<INSTANCE-ID>}"
+    echo
+    echo "  After this, private servers route through this NAT automatically."
+    echo "  No commands needed on the private servers themselves."
+  fi
+  echo
+  echo -e "${_B}═════════════════════════════════════════════════════════${_N}"
+}
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # MAIN
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -825,6 +893,7 @@ main() {
   # ── Resolve conntrack module ──────────────────────────────────────────────────
   if $DRY_RUN; then
     _CONNTRACK_MODULE="conntrack"
+    # shellcheck disable=SC2054
     _CONNTRACK_ARGS=(-m conntrack --ctstate RELATED,ESTABLISHED)
   else
     resolve_conntrack_module
@@ -882,6 +951,8 @@ main() {
   log "  Re-run  :  sudo $0        (idempotent)"
   log "  Undo    :  sudo $0 --uninstall"
   log "════════════════════════════════════════════════════"
+
+  show_client_setup
 }
 
 main "$@"
