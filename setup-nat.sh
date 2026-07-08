@@ -134,30 +134,32 @@ print_main_menu() {
   _box_bot
 }
 
-# Prompt for a numbered choice; echo the choice on stdout
+# Prompt for a numbered choice; echo the choice on stdout.
+# Uses /dev/tty for all I/O so it works correctly inside $() subshells.
 prompt_choice() {
   local lo="${1:-1}" hi="${2:-5}" choice
   while true; do
-    printf '\n%sEnter choice [%d-%d]: %s' "$CBOLD" "$lo" "$hi" "$CN"
-    read -r choice 2>/dev/null || { echo; exit 0; }
+    printf '\n%sEnter choice [%d-%d]: %s' "$CBOLD" "$lo" "$hi" "$CN" > /dev/tty
+    read -r choice < /dev/tty 2>/dev/null || { printf '\n' > /dev/tty; echo '0'; return; }
     if [[ "$choice" =~ ^[0-9]+$ ]] && (( choice >= lo && choice <= hi )); then
       echo "$choice"; return
     fi
-    printf '%s  Invalid — enter a number between %d and %d.%s\n' "$CR" "$lo" "$hi" "$CN"
+    printf '%s  Invalid — enter a number between %d and %d.%s\n' "$CR" "$lo" "$hi" "$CN" > /dev/tty
   done
 }
 
-# y/N confirmation; returns 0 for yes, 1 for no
+# y/N confirmation; returns 0 for yes, 1 for no.
+# Uses /dev/tty so it works when called from within $() subshells.
 confirm() {
   local msg="${1:-Continue?}" answer
-  printf '\n%s%s [y/N]: %s' "$CY" "$msg" "$CN"
-  read -r answer 2>/dev/null || { echo; return 1; }
+  printf '\n%s%s [y/N]: %s' "$CY" "$msg" "$CN" > /dev/tty
+  read -r answer < /dev/tty 2>/dev/null || { printf '\n' > /dev/tty; return 1; }
   [[ "${answer,,}" == 'y' || "${answer,,}" == 'yes' ]]
 }
 
 press_enter() {
-  printf '\n%sPress Enter to continue...%s' "$CDIM" "$CN"
-  read -r _ 2>/dev/null || true
+  printf '\n%sPress Enter to continue...%s' "$CDIM" "$CN" > /dev/tty
+  read -r _ < /dev/tty 2>/dev/null || true
 }
 
 # ═══════════════════════════════════════════════════════════════════════════════
