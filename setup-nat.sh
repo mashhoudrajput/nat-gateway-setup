@@ -263,11 +263,11 @@ show_client_menu() {
     _box_line "  ${CY}[3]${CN}  View commands on screen"
     if $IS_EC2; then
       _box_line "  ${CM}[4]${CN}  Show AWS route table instructions"
-      _box_line "  ${CDIM}[5]  Back to main menu${CN}"
+      _box_line "  ${CDIM}[5]  Exit${CN}"
       _box_bot
       local choice; choice=$(prompt_choice 1 5)
     else
-      _box_line "  ${CDIM}[4]  Back to main menu${CN}"
+      _box_line "  ${CDIM}[4]  Exit${CN}"
       _box_bot
       local choice; choice=$(prompt_choice 1 4)
     fi
@@ -308,10 +308,11 @@ show_client_menu() {
           _show_aws_instructions "$nat_gw" "$instance_id"
           press_enter
         else
-          return
+          printf '\n%sGoodbye.%s\n\n' "$CDIM" "$CN"
+          exit 0
         fi
         ;;
-      5) return ;;
+      5) printf '\n%sGoodbye.%s\n\n' "$CDIM" "$CN"; exit 0 ;;
     esac
   done
 }
