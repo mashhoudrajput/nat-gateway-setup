@@ -158,8 +158,9 @@ confirm() {
 }
 
 press_enter() {
-  printf '\n%sPress Enter to continue...%s' "$CDIM" "$CN" > /dev/tty
-  read -r _ < /dev/tty 2>/dev/null || true
+  printf '\n%s[ Press any key to continue ]%s' "$CDIM" "$CN" > /dev/tty
+  read -r -s -n 1 _ < /dev/tty 2>/dev/null || true
+  printf '\n' > /dev/tty
 }
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -178,6 +179,7 @@ copy_to_clipboard() {
 # ═══════════════════════════════════════════════════════════════════════════════
 # CLIENT SCRIPT GENERATOR
 # ═══════════════════════════════════════════════════════════════════════════════
+# shellcheck disable=SC2016  # single quotes intentional: generating shell script text, not expanding
 generate_client_script() {
   # Outputs a complete, runnable bash script for private servers
   local gw="$1" iid="${2:-}"
@@ -207,8 +209,8 @@ generate_client_script() {
   printf 'cat > /etc/systemd/system/nat-route.service << SVCEOF\n'
   printf '[Unit]\n'
   printf 'Description=Default route via NAT Gateway (%s)\n' "$gw"
-  printf 'After=network.target\n'
-  printf 'Wants=network.target\n\n'
+  printf 'After=network-online.target\n'
+  printf 'Wants=network-online.target\n\n'
   printf '[Service]\n'
   printf 'Type=oneshot\n'
   printf 'ExecStart=/sbin/ip route replace default via %s\n' "$gw"
@@ -296,9 +298,9 @@ show_client_menu() {
         _box_top
         _box_line "  ${CBOLD}Commands to run on each private server:${CN}"
         _box_bot
-        echo
-        printf '%s\n' "$script_content" | sed 's/^/  /'
-        echo
+        printf '\n%s────── BEGIN SCRIPT ──────────────────────────────────────────────────%s\n' "$CDIM" "$CN"
+        printf '%s\n' "$script_content"
+        printf '%s────── END SCRIPT ────────────────────────────────────────────────────%s\n\n' "$CDIM" "$CN"
         press_enter
         ;;
       4)
@@ -853,6 +855,7 @@ show_status() {
   echo
   echo "  Latest backup:"
   if [[ -d "$BACKUP_DIR" ]]; then
+    # shellcheck disable=SC2012  # ls -t is the idiomatic way to sort by mtime; backup filenames are safe
     ls -1t "$BACKUP_DIR"/*.v4 2>/dev/null | head -1 | sed 's/^/    /' || echo "    (none)"
   else echo "    (no backup directory)"; fi
   echo
