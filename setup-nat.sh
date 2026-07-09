@@ -202,7 +202,8 @@ generate_client_script() {
   printf 'echo ""\n\n'
   printf '# ── Step 1: Apply route now ──────────────────────────────────\n'
   printf 'echo "[1/3] Applying default route via $NAT_GW..."\n'
-  printf 'ip route replace default via "$NAT_GW"\n'
+  printf 'ip route del default 2>/dev/null || true\n'
+  printf 'ip route add default via "$NAT_GW"\n'
   printf 'echo "      OK — route active"\n\n'
   printf '# ── Step 2: Persist via systemd service ─────────────────────\n'
   printf 'echo "[2/3] Installing systemd persistence service..."\n'
@@ -213,7 +214,8 @@ generate_client_script() {
   printf 'Wants=network-online.target\n\n'
   printf '[Service]\n'
   printf 'Type=oneshot\n'
-  printf 'ExecStart=/sbin/ip route replace default via %s\n' "$gw"
+  printf 'ExecStartPre=-/sbin/ip route del default\n'
+  printf 'ExecStart=/sbin/ip route add default via %s\n' "$gw"
   printf 'RemainAfterExit=yes\n\n'
   printf '[Install]\n'
   printf 'WantedBy=multi-user.target\n'
@@ -234,7 +236,7 @@ generate_client_script() {
   printf 'echo ""\n'
   printf 'echo "================================================="\n'
   printf 'echo "  Client setup complete!"\n'
-  printf 'echo "  Default route  : $(ip route show default)"\n'
+  printf 'echo "  Default route  : $(ip route show default | head -1)"\n'
   printf 'echo "  Service status : $(systemctl is-active nat-route.service)"\n'
   printf 'echo "================================================="\n'
   printf 'echo ""\n'
